@@ -1,125 +1,134 @@
+import { useState, useEffect } from "react"
+
 function Subjects({ setScreen }) {
-  const subjects = [
-    {
-      code: "3150703",
-      name: "Database Management System",
-      units: 6,
-      description:
-        "Learn database concepts, SQL, normalization, transactions, and database design."
-    },
-    {
-      code: "3150716",
-      name: "Machine Learning",
-      units: 6,
-      description:
-        "Explore supervised learning, unsupervised learning, classification, clustering, and model evaluation."
-    },
-    {
-      code: "3150715",
-      name: "Cyber Security",
-      units: 6,
-      description:
-        "Study cybersecurity fundamentals, threats, attacks, cryptography, and security mechanisms."
-    },
-    {
-      code: "3150714",
-      name: "Data Mining & Warehousing",
-      units: 6,
-      description:
-        "Learn data preprocessing, data warehousing, OLAP, classification, clustering, and association rules."
-    },
-    {
-      code: "3150713",
-      name: "Mobile Computing & Networks",
-      units: 6,
-      description:
-        "Study mobile communication, wireless networks, protocols, and mobile computing concepts."
-    }
+  const [subjects, setSubjects] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedBranch, setSelectedBranch] = useState("Information Technology")
+  const [selectedSemester, setSelectedSemester] = useState(1)
+
+  const branches = [
+    "Information Technology",
+    "Computer Engineering",
+    "Electrical Engineering",
+    "Civil Engineering",
+    "Mechanical Engineering",
+    "Chemical Engineering",
+    "Plastic Engineering"
   ]
 
-  return (
-    <main className="max-w-6xl mx-auto px-6 py-8">
+  useEffect(() => {
+    setIsLoading(true)
+    const params = new URLSearchParams({
+      branch: selectedBranch,
+      semester: selectedSemester
+    })
+    fetch(`http://127.0.0.1:8000/api/subjects?${params}`)
+      .then((response) => response.json())
+      .then((data) => {
+        setSubjects(data.subjects || [])
+        setIsLoading(false)
+      })
+      .catch(() => {
+        setSubjects([])
+        setIsLoading(false)
+      })
+  }, [selectedBranch, selectedSemester])
 
-      {/* Back Button */}
+  return (
+    <main className="max-w-6xl mx-auto px-6 py-10">
+
       <button
         onClick={() => setScreen("home")}
-        className="mb-6 text-blue-600 hover:underline"
+        className="mb-8 text-sm text-slate hover:text-ink"
       >
         ← Back to Home
       </button>
 
-      {/* Page Header */}
       <section className="mb-8">
-
-        <h2 className="text-3xl font-bold text-gray-900">
-          📚 Subject & Syllabus
+        <h2 className="font-display text-4xl text-ink">
+          Subject & Syllabus
         </h2>
-
-        <p className="mt-2 text-gray-600">
-          Explore your subjects and syllabus topics.
+        <p className="mt-2 text-slate">
+          Browse subjects by branch and semester.
         </p>
-
       </section>
 
-      {/* Subject Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        {subjects.map((subject) => (
-
-          <div
-            key={subject.code}
-            className="bg-white p-6 rounded-2xl shadow-sm border"
+      {/* Branch pills */}
+      <section className="mb-4 flex flex-wrap gap-2">
+        {branches.map((branch) => (
+          <button
+            key={branch}
+            onClick={() => setSelectedBranch(branch)}
+            className={
+              selectedBranch === branch
+                ? "px-4 py-2 rounded-full text-sm font-medium bg-ink text-paper"
+                : "px-4 py-2 rounded-full text-sm font-medium bg-white border border-line text-slate hover:border-ink hover:text-ink"
+            }
           >
+            {branch}
+          </button>
+        ))}
+      </section>
 
-            <div className="flex justify-between items-start">
+      {/* Semester pills */}
+      <section className="mb-10 flex flex-wrap gap-2">
+        {[1, 2, 3, 4, 5].map((sem) => (
+          <button
+            key={sem}
+            onClick={() => setSelectedSemester(sem)}
+            className={
+              selectedSemester === sem
+                ? "w-10 h-10 rounded-full text-sm font-mono bg-teal text-white"
+                : "w-10 h-10 rounded-full text-sm font-mono bg-white border border-line text-slate hover:border-teal hover:text-teal"
+            }
+          >
+            {sem}
+          </button>
+        ))}
+      </section>
 
+      {isLoading && <p className="text-slate">Loading subjects…</p>}
+
+      {!isLoading && subjects.length === 0 && (
+        <p className="text-slate">No subjects found for this selection.</p>
+      )}
+
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {subjects.map((subject) => (
+          <div
+            key={subject.id}
+            className="bg-white border border-line rounded-lg p-6 hover:border-ink transition-colors"
+          >
+            <div className="flex justify-between items-start gap-3">
               <div>
-
-                <p className="text-sm text-blue-600 font-medium">
-                  {subject.code}
+                <p className="font-mono text-xs text-teal">
+                  {subject.subject_code}
                 </p>
-
-                <h3 className="mt-1 text-xl font-semibold">
-                  {subject.name}
+                <h3 className="font-display text-lg text-ink mt-1">
+                  {subject.subject_name}
                 </h3>
-
               </div>
-
-              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
-                {subject.units} Units
+              <span className={
+                subject.student_category === "Common"
+                  ? "shrink-0 text-xs px-2 py-1 rounded-full bg-teal/10 text-teal font-medium"
+                  : "shrink-0 text-xs px-2 py-1 rounded-full bg-amber/20 text-ink font-medium"
+              }>
+                {subject.student_category}
               </span>
-
             </div>
 
-            <p className="mt-4 text-gray-600">
-              {subject.description}
-            </p>
+            <div className="mt-4 flex gap-5 text-sm text-slate font-mono">
+              <span>{subject.credits ?? "—"} credits</span>
+              <span>{subject.teaching_hours ?? "—"} hrs/week</span>
+            </div>
 
-            <button
-              className="mt-5 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              View Syllabus
-            </button>
-
+            {subject.course_category && (
+              <p className="mt-3 text-xs text-slate border-t border-line pt-3">
+                {subject.course_category}
+              </p>
+            )}
           </div>
-
         ))}
-
-      </section>
-
-      {/* Development Notice */}
-      <section className="mt-8 bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-
-        <p className="font-medium text-yellow-800">
-          🚧 Sample Data
-        </p>
-
-        <p className="mt-1 text-sm text-yellow-700">
-          Subject information shown here is placeholder data for
-          frontend development. Official syllabus integration will
-          be added later.
-        </p>
-
       </section>
 
     </main>

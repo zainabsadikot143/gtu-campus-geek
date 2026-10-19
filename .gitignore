@@ -12,7 +12,7 @@ frontend/dist/
 .env.*
 
 # Generated database
-chroma_db/
+# chroma_db/
 
 # OS files
 .DS_Store
@@ -20,3 +20,18 @@ Thumbs.db
 
 # VS Code settings
 .vscode/
+# Backend secrets and local files
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/venv/
+backend/__pycache__/
+backend/chroma_db/
+
+# Frontend environment files
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Build output
+frontend/dist/
