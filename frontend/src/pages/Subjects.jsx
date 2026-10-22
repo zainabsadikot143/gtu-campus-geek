@@ -22,7 +22,7 @@ function Subjects({ setScreen }) {
       branch: selectedBranch,
       semester: selectedSemester
     })
-    fetch(`http://127.0.0.1:8000/api/subjects?${params}`)
+    fetch(`${import.meta.env.VITE_API_URL}/api/subjects?${params}`)
       .then((response) => response.json())
       .then((data) => {
         setSubjects(data.subjects || [])
