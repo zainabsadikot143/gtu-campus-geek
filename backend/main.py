@@ -56,12 +56,14 @@ app = FastAPI(
 )
 
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:5174",
-    ] + ([os.environ["FRONTEND_URL"]] if os.getenv("FRONTEND_URL") else []),
+        "https://gtu-campus-geek.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
