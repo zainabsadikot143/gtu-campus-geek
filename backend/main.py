@@ -364,12 +364,16 @@ def get_chat_history(authorization: str | None = Header(default=None)):
 
 
 @app.get("/api/subjects")
-def get_subjects(branch: str = None, semester: int = None):
+def get_subjects(branch: str = None, semester: int = None, student_category: str = "Common"):
     query = supabase_client.table("subjects").select("*")
     if branch:
-        query = query.eq("branch", branch)
+        # Department subjects PLUS subjects shared by all branches (Maths, English, etc.)
+        query = query.in_("branch", [branch, "All Branches"])
     if semester:
         query = query.eq("semester", semester)
+    # "Common" = regular students, "C → D" = C-scheme to D-scheme students, "all" = no filter
+    if student_category != "all":
+        query = query.eq("student_category", student_category)
     query = query.order("semester").order("subject_name")
     result = query.execute()
     return {"success": True, "count": len(result.data), "subjects": result.data}
