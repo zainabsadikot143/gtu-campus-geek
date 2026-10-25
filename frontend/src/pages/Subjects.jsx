@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react"
 
 function Subjects({ setScreen }) {
@@ -5,7 +6,7 @@ function Subjects({ setScreen }) {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedBranch, setSelectedBranch] = useState("Information Technology")
   const [selectedSemester, setSelectedSemester] = useState(1)
-
+  const [availablePdfs, setAvailablePdfs] = useState({})
   const branches = [
     "Information Technology",
     "Computer Engineering",
@@ -15,20 +16,31 @@ function Subjects({ setScreen }) {
     "Chemical Engineering",
     "Plastic Engineering"
   ]
-
+  useEffect(() => {
+    fetch("/syllabus/manifest.json")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => setAvailablePdfs(data))
+      .catch(() => setAvailablePdfs({}))
+  }, [])
   useEffect(() => {
     setIsLoading(true)
+
     const params = new URLSearchParams({
       branch: selectedBranch,
       semester: selectedSemester
     })
+
     fetch(`${import.meta.env.VITE_API_URL}/api/subjects?${params}`)
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load subjects")
+        return response.json()
+      })
       .then((data) => {
         setSubjects(data.subjects || [])
         setIsLoading(false)
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Error loading subjects:", error)
         setSubjects([])
         setIsLoading(false)
       })
@@ -36,7 +48,6 @@ function Subjects({ setScreen }) {
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10">
-
       <button
         onClick={() => setScreen("home")}
         className="mb-8 text-sm text-slate hover:text-ink"
@@ -46,14 +57,13 @@ function Subjects({ setScreen }) {
 
       <section className="mb-8">
         <h2 className="font-display text-4xl text-ink">
-          Subject & Syllabus
+          Subject &amp; Syllabus
         </h2>
         <p className="mt-2 text-slate">
           Browse subjects by branch and semester.
         </p>
       </section>
 
-      {/* Branch pills */}
       <section className="mb-4 flex flex-wrap gap-2">
         {branches.map((branch) => (
           <button
@@ -70,7 +80,6 @@ function Subjects({ setScreen }) {
         ))}
       </section>
 
-      {/* Semester pills */}
       <section className="mb-10 flex flex-wrap gap-2">
         {[1, 2, 3, 4, 5].map((sem) => (
           <button
@@ -108,11 +117,14 @@ function Subjects({ setScreen }) {
                   {subject.subject_name}
                 </h3>
               </div>
-              <span className={
-                subject.student_category === "Common"
-                  ? "shrink-0 text-xs px-2 py-1 rounded-full bg-teal/10 text-teal font-medium"
-                  : "shrink-0 text-xs px-2 py-1 rounded-full bg-amber/20 text-ink font-medium"
-              }>
+
+              <span
+                className={
+                  subject.student_category === "Common"
+                    ? "shrink-0 text-xs px-2 py-1 rounded-full bg-teal/10 text-teal font-medium"
+                    : "shrink-0 text-xs px-2 py-1 rounded-full bg-amber/20 text-ink font-medium"
+                }
+              >
                 {subject.student_category}
               </span>
             </div>
@@ -127,10 +139,38 @@ function Subjects({ setScreen }) {
                 {subject.course_category}
               </p>
             )}
+
+                        <div className="mt-5 border-t border-line pt-4">
+              {(() => {
+                const pdfFile =
+                  subject.syllabus_pdf &&
+                  availablePdfs[subject.syllabus_pdf.toLowerCase()]
+                return pdfFile ? (
+                  <div className="flex flex-wrap gap-3">
+                    <a
+                      href={`/syllabus/${encodeURIComponent(pdfFile)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md bg-teal px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                    >
+                      📄 View PDF ↗
+                    </a>
+                    <a
+                      href={`/syllabus/${encodeURIComponent(pdfFile)}`}
+                      download={pdfFile}
+                      className="inline-flex items-center gap-2 rounded-md border border-teal px-4 py-2 text-sm font-medium text-teal hover:bg-teal/10"
+                    >
+                      ⬇ Download
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate">📄 PDF coming soon</p>
+                )
+              })()}
+            </div>
           </div>
         ))}
       </section>
-
     </main>
   )
 }
