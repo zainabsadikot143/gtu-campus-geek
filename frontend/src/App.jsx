@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { GraduationCap, LogOut } from "lucide-react";
 
@@ -9,11 +8,30 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 import { supabase } from "./lib/supabase";
+import { courses, DEFAULT_COURSE } from "./lib/courses";
 
 function App() {
   const [screen, setScreen] = useState("home");
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // The course chosen on the Home page (remembered in this browser)
+  const [selectedCourse, setSelectedCourse] = useState(() => {
+    try {
+      const saved = localStorage.getItem("gtu_course");
+      return saved && courses[saved] ? saved : DEFAULT_COURSE;
+    } catch {
+      return DEFAULT_COURSE;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gtu_course", selectedCourse);
+    } catch {
+      // storage not available: the app still works, it just won't remember
+    }
+  }, [selectedCourse]);
 
   useEffect(() => {
     // Check existing login session
@@ -82,7 +100,7 @@ function App() {
               </h1>
 
               <p className="text-xs text-slate mt-1">
-                Syllabus-grounded AI for GTU Diploma students
+                Syllabus-grounded AI for GTU students
               </p>
             </div>
           </button>
@@ -91,7 +109,7 @@ function App() {
             <div className="flex items-center gap-4">
 
               <div className="text-sm text-slate font-mono hidden sm:block">
-                GTU Diploma
+                GTU {courses[selectedCourse].short}
               </div>
 
               <button
@@ -105,7 +123,7 @@ function App() {
             </div>
           ) : (
             <div className="text-sm text-slate font-mono hidden sm:block">
-              GTU Diploma
+              GTU Campus Geek
             </div>
           )}
 
@@ -123,7 +141,11 @@ function App() {
 
       {/* Main application */}
       {session && screen === "home" && (
-        <Home setScreen={setScreen} />
+        <Home
+          setScreen={setScreen}
+          selectedCourse={selectedCourse}
+          setSelectedCourse={setSelectedCourse}
+        />
       )}
 
       {session && screen === "assistant" && (
@@ -131,7 +153,11 @@ function App() {
       )}
 
       {session && screen === "subjects" && (
-        <Subjects setScreen={setScreen} />
+        <Subjects
+          setScreen={setScreen}
+          selectedCourse={selectedCourse}
+          setSelectedCourse={setSelectedCourse}
+        />
       )}
 
       {/* Footer */}
@@ -139,11 +165,11 @@ function App() {
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
 
           <p className="text-sm text-slate">
-            A study companion for GTU Diploma students.
+            A study companion for GTU students.
           </p>
 
           <p className="text-xs text-slate font-mono">
-            7 branches, 5 semesters, 312 subjects indexed
+            Diploma: 7 departments, 6 semesters, 300+ subjects indexed
           </p>
 
         </div>

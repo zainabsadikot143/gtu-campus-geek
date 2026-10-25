@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react"
+import { courses } from "../lib/courses"
 
-function Subjects({ setScreen }) {
+function Subjects({ setScreen, selectedCourse, setSelectedCourse }) {
+  const course = courses[selectedCourse]
+
   const [subjects, setSubjects] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedBranch, setSelectedBranch] = useState("Information Technology")
+  const [selectedBranch, setSelectedBranch] = useState(course.departments[0])
   const [selectedSemester, setSelectedSemester] = useState(1)
   const [availablePdfs, setAvailablePdfs] = useState({})
 
-  const branches = [
-    "Information Technology",
-    "Computer Engineering",
-    "Electrical Engineering",
-    "Civil Engineering",
-    "Mechanical Engineering",
-    "Chemical Engineering",
-    "Plastic Engineering"
-  ]
+  // When the course changes here, reset department and semester
+  function handleCourseChange(newCourse) {
+    setSelectedCourse(newCourse)
+    setSelectedBranch(courses[newCourse].departments[0])
+    setSelectedSemester(1)
+  }
 
   // Load the list of PDFs that really exist (written by sync_syllabus_pdfs.py)
   useEffect(() => {
@@ -25,8 +25,15 @@ function Subjects({ setScreen }) {
       .catch(() => setAvailablePdfs({}))
   }, [])
 
-  // Load subjects whenever the branch or semester changes
+  // Load subjects whenever the course, department or semester changes
   useEffect(() => {
+    // Courses without data yet: don't call the API
+    if (!courses[selectedCourse].hasData) {
+      setSubjects([])
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
 
     const params = new URLSearchParams({
@@ -48,7 +55,10 @@ function Subjects({ setScreen }) {
         setSubjects([])
         setIsLoading(false)
       })
-  }, [selectedBranch, selectedSemester])
+  }, [selectedCourse, selectedBranch, selectedSemester])
+
+  const selectClass =
+    "min-w-[12rem] rounded-md border border-line bg-white px-4 py-2 text-sm text-ink focus:border-ink focus:outline-none"
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10">
@@ -64,25 +74,46 @@ function Subjects({ setScreen }) {
           Subject &amp; Syllabus
         </h2>
         <p className="mt-2 text-slate">
-          Browse subjects by branch and semester.
+          Browse subjects by course, department and semester.
         </p>
       </section>
 
       <section className="mb-10 flex flex-wrap gap-5">
         <div className="flex flex-col gap-1">
           <label
+            htmlFor="course-select"
+            className="text-xs font-medium text-slate"
+          >
+            Course
+          </label>
+          <select
+            id="course-select"
+            value={selectedCourse}
+            onChange={(e) => handleCourseChange(e.target.value)}
+            className={`${selectClass} min-w-[16rem]`}
+          >
+            {Object.entries(courses).map(([key, c]) => (
+              <option key={key} value={key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label
             htmlFor="branch-select"
             className="text-xs font-medium text-slate"
           >
-            Branch
+            Department
           </label>
           <select
             id="branch-select"
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
-            className="min-w-[16rem] rounded-md border border-line bg-white px-4 py-2 text-sm text-ink focus:border-ink focus:outline-none"
+            className={`${selectClass} min-w-[16rem]`}
           >
-            {branches.map((branch) => (
+            {course.departments.map((branch) => (
               <option key={branch} value={branch}>
                 {branch}
               </option>
@@ -101,21 +132,49 @@ function Subjects({ setScreen }) {
             id="semester-select"
             value={selectedSemester}
             onChange={(e) => setSelectedSemester(Number(e.target.value))}
-            className="min-w-[10rem] rounded-md border border-line bg-white px-4 py-2 text-sm text-ink focus:border-teal focus:outline-none"
+            className={selectClass}
           >
-            {[1, 2, 3, 4, 5].map((sem) => (
-              <option key={sem} value={sem}>
-                Semester {sem}
-              </option>
-            ))}
+            {Array.from({ length: course.semesters }, (_, i) => i + 1).map(
+              (sem) => (
+                <option key={sem} value={sem}>
+                  Semester {sem}
+                </option>
+              )
+            )}
           </select>
         </div>
       </section>
 
-      {isLoading && <p className="text-slate">Loading subjects…</p>}
+      {!course.hasData && (
+        <div className="rounded-lg border border-line bg-white p-8 text-center">
+          <p className="font-display text-xl text-ink">
+            {course.label} syllabus is coming soon
+          </p>
+          <p className="mt-2 text-slate">
+            We are adding subjects and syllabus PDFs for this course. For now,
+            syllabus is available for Diploma Engineering.
+          </p>
+        </div>
+      )}
 
-      {!isLoading && subjects.length === 0 && (
-        <p className="text-slate">No subjects found for this selection.</p>
+      {course.hasData && isLoading && (
+        <p className="text-slate">Loading subjects…</p>
+      )}
+
+      {course.hasData && !isLoading && subjects.length === 0 && (
+        selectedSemester === 6 ? (
+          <div className="rounded-lg border border-line bg-white p-8 text-center">
+            <p className="font-display text-xl text-ink">
+              Semester 6 syllabus not published yet
+            </p>
+            <p className="mt-2 text-slate">
+              GTU has not officially released the Semester 6 syllabus. It will
+              be added here as soon as it is available.
+            </p>
+          </div>
+        ) : (
+          <p className="text-slate">No subjects found for this selection.</p>
+        )
       )}
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
