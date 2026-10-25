@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react"
 
 function Subjects({ setScreen }) {
@@ -7,6 +6,7 @@ function Subjects({ setScreen }) {
   const [selectedBranch, setSelectedBranch] = useState("Information Technology")
   const [selectedSemester, setSelectedSemester] = useState(1)
   const [availablePdfs, setAvailablePdfs] = useState({})
+
   const branches = [
     "Information Technology",
     "Computer Engineering",
@@ -16,12 +16,16 @@ function Subjects({ setScreen }) {
     "Chemical Engineering",
     "Plastic Engineering"
   ]
+
+  // Load the list of PDFs that really exist (written by sync_syllabus_pdfs.py)
   useEffect(() => {
     fetch("/syllabus/manifest.json")
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => setAvailablePdfs(data))
       .catch(() => setAvailablePdfs({}))
   }, [])
+
+  // Load subjects whenever the branch or semester changes
   useEffect(() => {
     setIsLoading(true)
 
@@ -64,36 +68,48 @@ function Subjects({ setScreen }) {
         </p>
       </section>
 
-      <section className="mb-4 flex flex-wrap gap-2">
-        {branches.map((branch) => (
-          <button
-            key={branch}
-            onClick={() => setSelectedBranch(branch)}
-            className={
-              selectedBranch === branch
-                ? "px-4 py-2 rounded-full text-sm font-medium bg-ink text-paper"
-                : "px-4 py-2 rounded-full text-sm font-medium bg-white border border-line text-slate hover:border-ink hover:text-ink"
-            }
+      <section className="mb-10 flex flex-wrap gap-5">
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="branch-select"
+            className="text-xs font-medium text-slate"
           >
-            {branch}
-          </button>
-        ))}
-      </section>
+            Branch
+          </label>
+          <select
+            id="branch-select"
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="min-w-[16rem] rounded-md border border-line bg-white px-4 py-2 text-sm text-ink focus:border-ink focus:outline-none"
+          >
+            {branches.map((branch) => (
+              <option key={branch} value={branch}>
+                {branch}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <section className="mb-10 flex flex-wrap gap-2">
-        {[1, 2, 3, 4, 5].map((sem) => (
-          <button
-            key={sem}
-            onClick={() => setSelectedSemester(sem)}
-            className={
-              selectedSemester === sem
-                ? "w-10 h-10 rounded-full text-sm font-mono bg-teal text-white"
-                : "w-10 h-10 rounded-full text-sm font-mono bg-white border border-line text-slate hover:border-teal hover:text-teal"
-            }
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="semester-select"
+            className="text-xs font-medium text-slate"
           >
-            {sem}
-          </button>
-        ))}
+            Semester
+          </label>
+          <select
+            id="semester-select"
+            value={selectedSemester}
+            onChange={(e) => setSelectedSemester(Number(e.target.value))}
+            className="min-w-[10rem] rounded-md border border-line bg-white px-4 py-2 text-sm text-ink focus:border-teal focus:outline-none"
+          >
+            {[1, 2, 3, 4, 5].map((sem) => (
+              <option key={sem} value={sem}>
+                Semester {sem}
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
 
       {isLoading && <p className="text-slate">Loading subjects…</p>}
@@ -140,7 +156,7 @@ function Subjects({ setScreen }) {
               </p>
             )}
 
-                        <div className="mt-5 border-t border-line pt-4">
+            <div className="mt-5 border-t border-line pt-4">
               {(() => {
                 const pdfFile =
                   subject.syllabus_pdf &&
