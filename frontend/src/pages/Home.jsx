@@ -1,27 +1,27 @@
-import { Sparkles, Layers, CalendarDays, BookMarked, MessageCircle, BookOpen, ArrowUpRight } from "lucide-react"
+import { Sparkles, MessageCircle, BookOpen, ArrowUpRight } from "lucide-react"
 
 function Home({ setScreen }) {
   return (
     <main className="max-w-6xl mx-auto px-6 py-16">
 
       {/* Hero */}
-      <section className="relative grid grid-cols-1 lg:grid-cols-5 gap-12 items-center mb-24 rounded-2xl">
+      <section className="relative mb-24 rounded-2xl py-6">
 
         <div className="absolute inset-0 -z-10 bg-dot-grid opacity-40 rounded-2xl"></div>
 
-        <div className="lg:col-span-3">
+        <div className="max-w-3xl">
           <span className="inline-flex items-center gap-2 bg-amber/15 text-ink px-3 py-1.5 rounded-full text-sm font-medium mb-5">
             <Sparkles className="w-4 h-4 text-amber" />
             AI-powered syllabus assistant
           </span>
 
-          <h2 className="font-display text-4xl md:text-5xl font-medium text-ink leading-[1.1]">
+          <h2 className="font-display text-4xl md:text-6xl font-medium text-ink leading-[1.1]">
             Learn your GTU syllabus,
             <br className="hidden md:block" />
             one question at a time.
           </h2>
 
-          <p className="mt-5 text-lg text-slate max-w-md leading-relaxed">
+          <p className="mt-5 text-lg text-slate max-w-xl leading-relaxed">
             Ask about any topic in your prescribed curriculum and get answers
             grounded in the actual GTU syllabus, not generic AI guesswork.
           </p>
@@ -41,51 +41,6 @@ function Home({ setScreen }) {
               <BookOpen className="w-4 h-4" />
               Browse syllabus
             </button>
-          </div>
-        </div>
-
-        {/* Featured subject card */}
-        <div className="lg:col-span-2 relative">
-
-          <div className="absolute -top-6 -right-6 w-32 h-32 bg-teal/10 rounded-full blur-2xl"></div>
-          <div className="absolute -bottom-8 -left-6 w-28 h-28 bg-amber/15 rounded-full blur-2xl"></div>
-
-          <div className="relative bg-white border border-line rounded-2xl shadow-lg shadow-ink/5 overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-teal via-amber to-ink"></div>
-
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate">
-                  <BookMarked className="w-3.5 h-3.5 text-teal" />
-                  Featured subject
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-teal/10 text-teal font-medium">
-                  Common
-                </span>
-              </div>
-
-              <p className="font-mono text-xs text-teal">DI01016011</p>
-              <p className="font-display text-xl text-ink mt-1">Python Programming</p>
-              <p className="text-xs text-slate mt-1">Information Technology, Semester 1</p>
-
-              <div className="grid grid-cols-3 gap-3 mt-6 pt-5 border-t border-line">
-                <div className="text-center">
-                  <Layers className="w-4 h-4 text-teal mx-auto mb-1.5" />
-                  <p className="font-mono text-xl text-ink">7</p>
-                  <p className="text-xs text-slate">branches</p>
-                </div>
-                <div className="text-center">
-                  <CalendarDays className="w-4 h-4 text-amber mx-auto mb-1.5" />
-                  <p className="font-mono text-xl text-ink">5</p>
-                  <p className="text-xs text-slate">semesters</p>
-                </div>
-                <div className="text-center">
-                  <BookMarked className="w-4 h-4 text-ink mx-auto mb-1.5" />
-                  <p className="font-mono text-xl text-ink">312</p>
-                  <p className="text-xs text-slate">subjects</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
