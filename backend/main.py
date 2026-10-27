@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,6 +43,81 @@ try:
 except Exception as e:
     KNOWN_SUBJECTS = []
     print(f"WARNING: Could not load subjects from Supabase at startup ({e}). Subject-matching will be disabled until this is fixed.")
+
+# ---------- Question understanding helpers ----------
+# Students type short forms like "AIPE" and say "IT 5th semester" in the question itself.
+# These helpers turn that into subject names + branch + semester filters for ChromaDB.
+
+STOP_WORDS = {"and", "with", "of", "to", "in", "the", "for", "a", "an"}
+
+
+def make_acronym(name):
+    """'Artificial Intelligence with Prompt Engineering' -> 'aipe'"""
+    words = [w for w in re.findall(r"[A-Za-z0-9]+", name) if w.lower() not in STOP_WORDS]
+    return "".join(w[0] for w in words).lower()
+
+
+SUBJECT_ACRONYMS = {}
+for _name in KNOWN_SUBJECTS:
+    _ac = make_acronym(_name)
+    if len(_ac) >= 3:
+        SUBJECT_ACRONYMS.setdefault(_ac, []).append(_name)
+
+
+def find_matching_subjects(question_lower):
+    """Returns a list of subject names the question refers to (full name or acronym)."""
+    for subject_name in KNOWN_SUBJECTS:
+        if subject_name.lower() in question_lower:
+            ac = make_acronym(subject_name)
+            if len(ac) >= 3:
+                # Same subject can be named slightly differently in other branches
+                return SUBJECT_ACRONYMS.get(ac, [subject_name])
+            return [subject_name]
+    words = set(re.findall(r"[a-z0-9]+", question_lower))
+    for ac, names in SUBJECT_ACRONYMS.items():
+        if ac in words:
+            return names
+    return []
+
+
+BRANCH_PATTERNS = [
+    ("IT", r"\bit\s+(?:department|dept|branch|diploma)\b|\bit\s+(?:\d|sem)|information technology"),
+    ("CS", r"computer engineering|computer department|\bcse?\b"),
+    ("EE", r"electrical"),
+    ("CHM", r"chemical"),
+    ("CVL", r"civil"),
+    ("ME", r"mechanical"),
+    ("PL", r"plastic"),
+]
+
+
+def detect_branch_and_semester(question_lower):
+    """Reads things like 'IT department 5th semester' from the question text."""
+    branch = None
+    for code, pattern in BRANCH_PATTERNS:
+        if re.search(pattern, question_lower):
+            branch = code
+            break
+    semester = None
+    m = re.search(r"\b([1-6])\s*(?:st|nd|rd|th)?\s*sem", question_lower) or \
+        re.search(r"\bsem(?:ester)?\s*([1-6])\b", question_lower)
+    if m:
+        semester = int(m.group(1))
+    return branch, semester
+
+
+def build_where(names, branch, semester):
+    conditions = []
+    if names:
+        conditions.append({"subject_name": names[0]} if len(names) == 1 else {"subject_name": {"$in": names}})
+    if branch:
+        conditions.append({"branch": branch})
+    if semester:
+        conditions.append({"semester": semester})
+    if not conditions:
+        return None
+    return conditions[0] if len(conditions) == 1 else {"$and": conditions}
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_DB_PATH = str(BASE_DIR / "chroma_db")
@@ -178,44 +254,48 @@ def ask_question(request: QuestionRequest, authorization: str | None = Header(de
             "- Cover all 7 branches (IT, Computer, Electrical, Civil, Mechanical, Chemical, Plastic Engineering) across Semesters 1-5\n"
             "- Give you the PDF of a subject's syllabus if you ask for it\n"
             "- Remember our recent conversation so you can ask follow-up questions\n\n"
-            "I only answer using your actual GTU syllabus content, so I won't make up information outside what's officially prescribed. "
+            "I use your actual GTU syllabus to tell you what is prescribed, and I won't make up GTU-specific details. "
+            "When the syllabus only lists a topic name, I'll still teach the concept and clearly mark that part as a general explanation. "
             "Just ask me something like 'Explain loops in Python Programming' or 'What's the syllabus for Data Structures?' to get started."
         )
         save_chat_message(user_id, conversation_id, request.question, answer_text, [])
         return {"success": True, "question": request.question, "answer": answer_text, "sources": [], "conversation_id": conversation_id}
 
-    matched_subject = None
-    for subject_name in KNOWN_SUBJECTS:
-        if subject_name.lower() in question_lower:
-            matched_subject = subject_name
+    # Work out subject / branch / semester from the question (e.g. "AIPE ... IT 5th semester")
+    matched_names = find_matching_subjects(question_lower)
+    matched_subject = matched_names[0] if matched_names else None
+    detected_branch, detected_semester = detect_branch_and_semester(question_lower)
+    branch_filter = request.branch or detected_branch
+    semester_filter = request.semester or detected_semester
+
+    # Try the most specific filter first; if nothing is found, relax it step by step
+    filter_attempts = [
+        build_where(matched_names, branch_filter, semester_filter),
+        build_where(matched_names, request.branch, request.semester),
+        build_where(matched_names, None, None),
+    ]
+
+    retrieved_chunks = []
+    retrieved_metadata = []
+    seen_filters = []
+    for where_filter in filter_attempts:
+        if where_filter in seen_filters:
+            continue
+        seen_filters.append(where_filter)
+        if matched_names:
+            results = collection.get(where=where_filter)
+            retrieved_chunks = results["documents"] if results["documents"] else []
+            retrieved_metadata = results["metadatas"] if results["metadatas"] else []
+        else:
+            results = collection.query(
+                query_texts=[request.question],
+                n_results=4,
+                where=where_filter
+            )
+            retrieved_chunks = results["documents"][0] if results["documents"] else []
+            retrieved_metadata = results["metadatas"][0] if results["metadatas"] else []
+        if retrieved_chunks:
             break
-
-    filter_conditions = []
-    if matched_subject:
-        filter_conditions.append({"subject_name": matched_subject})
-    if request.branch:
-        filter_conditions.append({"branch": request.branch})
-    if request.semester:
-        filter_conditions.append({"semester": request.semester})
-
-    where_filter = None
-    if len(filter_conditions) == 1:
-        where_filter = filter_conditions[0]
-    elif len(filter_conditions) > 1:
-        where_filter = {"$and": filter_conditions}
-
-    if matched_subject:
-        results = collection.get(where=where_filter)
-        retrieved_chunks = results["documents"] if results["documents"] else []
-        retrieved_metadata = results["metadatas"] if results["metadatas"] else []
-    else:
-        results = collection.query(
-            query_texts=[request.question],
-            n_results=4,
-            where=where_filter
-        )
-        retrieved_chunks = results["documents"][0] if results["documents"] else []
-        retrieved_metadata = results["metadatas"][0] if results["metadatas"] else []
 
     if matched_subject and not retrieved_chunks:
         answer_text = f"'{matched_subject}' exists in our subject database, but its syllabus content hasn't been added to the knowledge base yet. Please check back later or contact the department."
@@ -236,8 +316,16 @@ def ask_question(request: QuestionRequest, authorization: str | None = Header(de
         history_text = "Recent conversation (for context on follow-up questions):\n" + "\n\n".join(history_lines) + "\n\n"
 
     prompt = f"""You are GTU Campus Geek, an AI-powered academic assistant for GTU Diploma students.
-Answer the student's question using ONLY the information provided in the context below.
-If the context does not contain enough information to answer, clearly say so instead of guessing.
+You are given text from the official GTU syllabus below. Use it to find out which subject, unit and topic the student is asking about, and teach that topic.
+
+ANSWERING RULES:
+1. Use the syllabus context to identify the subject, unit and topic, and mention where the topic appears in the syllabus (unit, section, related practicals if listed).
+2. If the syllabus context only lists the topic name and does not explain it, DO NOT refuse. Teach the concept yourself using your general knowledge, step by step like a teacher, with a simple example.
+3. Always separate the two parts clearly:
+   - "From the GTU syllabus:" what the context says (unit, topic, related practicals).
+   - "Explanation:" your teaching of the concept. If the context did not contain the explanation, begin this part with "(General explanation, not taken from the syllabus text)".
+4. Never invent GTU-specific facts (marks, subject codes, exam dates, units, topics or practicals that are not in the context). If a GTU-specific detail is missing, say it is not available in the syllabus data.
+5. Do not refuse to explain a technical concept just because the syllabus lists only its title.
 
 Explain like a teacher would in a classroom, not like a search result:
 - Start with a simple, one-line definition or overview of the concept
@@ -254,7 +342,7 @@ Student's Question: {request.question}
 Answer:"""
 
 
-    
+
     try:
         response = gemini_model.generate_content(prompt)
     except ResourceExhausted as e:
@@ -279,14 +367,6 @@ Answer:"""
     )
 
     return {
-        "success": True,
-        "question": request.question,
-        "answer": response.text,
-        "sources": sources,
-        "conversation_id": conversation_id
-    }
-
-    {
         "success": True,
         "question": request.question,
         "answer": response.text,
